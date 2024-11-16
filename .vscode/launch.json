@@ -1,0 +1,16 @@
+{
+    // Using IntelliSense to understand the relevant properties. 
+         // Hover to see the description of the existing attribute.
+         // For more information, please visit: https://go.microsoft.com/fwlink/?LinkId=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch erlang",
+            "type": "erlang",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "arguments": "-s bellman_ford_parallel_app",
+			"preLaunchTask": "rebar3 compile"
+        }
+    ]
+}
