@@ -12,11 +12,7 @@
 start() ->
     {N, Matrix} = read_file("input1.txt"),
     Dist = bellman_ford(N, Matrix),
-    Dist.
-
-
-
-
+    file:write_file("output.txt", io_lib:format("~p~n", [Dist])).
 
 read_file(Filename) ->
     {ok, Fd} = file:open(Filename, [read]),
