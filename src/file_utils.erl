@@ -4,10 +4,11 @@
 
 read_file(Filename) ->
     {ok, Fd} = file:open(Filename, [read]),
+    {ok, [PCount]} = io:fread(Fd, [], "~d"),
     {ok, [N]} = io:fread(Fd, [], "~d"),
     Matrix = read_lines(Fd),
     file:close(Fd),
-    {N, Matrix}.
+    {PCount, N, Matrix}.
 
 read_lines(Fd) ->
     read_lines(Fd, []).
