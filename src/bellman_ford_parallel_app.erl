@@ -7,59 +7,41 @@
 
 -export([start/0]).
 
--define(LARGE_NUMBER, 100000).
+-import(file_utils, [read_file/1]).
+-import(list_utils, [transpose/1, replace_value_in_list/3]).
+-import(algorithm, [bellman_ford/3]).
 
 start() ->
-    {N, Matrix} = read_file("input1.txt"),
-    Dist = bellman_ford(N, Matrix),
+    {N, Matrix} = file_utils:read_file("input1.txt"),
+    Matrix_T = list_utils:transpose(Matrix),
+    Start = erlang:now(),
+    Dist = parallel_bellman_ford(N, Matrix_T),
+    Finish = erlang:now(),
+    Time = timer:now_diff(Finish, Start) / 1000000,
+    io:format("Execution time of parallel_bellman_ford: ~p seconds~n", [Time]),
+    io:format("Dist: ~p~n", [Dist]),
     file:write_file("output.txt", io_lib:format("~p~n", [Dist])).
 
-read_file(Filename) ->
-    {ok, Fd} = file:open(Filename, [read]),
-    {ok, [N]} = io:fread(Fd, [], "~d"),
-    Matrix = read_lines(Fd),
-    file:close(Fd),
-    {N, Matrix}.
-
-
-read_lines(Fd) ->
-    read_lines(Fd, []).
-
-read_lines(Fd, Acc) ->
-    case io:get_line(Fd, "") of
-        eof ->
-            lists:reverse(Acc);
-        {error, Reason} ->
-            {error, Reason};
-        Line ->
-            Row_with_n = string:tokens(Line, " "),
-            Row = [string:trim(X) || X <- Row_with_n],
-            read_lines(Fd, [lists:map(fun(X) -> list_to_integer(X) end, Row)] ++ Acc)
-    end.
-
-
-
-
-
-
-bellman_ford(N, Mat) ->
-    DistStart = [0|lists:duplicate(N-1, ?LARGE_NUMBER)],
-
-    % Выполняем алгоритм Беллмана-Форда
-    lists:foldl(fun(_, DistCurrent) -> relax(N, Mat, DistCurrent) end, DistStart, lists:seq(0, N-1)).
-
-relax(N, Mat, Dist) ->
-    DistNewAfterAllRows = lists:foldl(fun(I, DistCurrent) -> relax_vertex(N, lists:nth(I, Mat), DistCurrent, I) end, Dist, lists:seq(1, N)),
-    DistNewAfterAllRows.
-
-relax_vertex(N, Row, Dist, I) ->
-    DistNewAfterRow = lists:map(fun(J) ->
-        WeightEdge = lists:nth(J, Row),
-        WeightSourceVertex = lists:nth(I, Dist),
-        WeightTargetVertex = lists:nth(J, Dist),
-        if
-            WeightEdge == 0 -> WeightTargetVertex;
-            true -> min(WeightSourceVertex + WeightEdge, WeightTargetVertex)
-        end
+parallel_bellman_ford(N, Matrix_T) ->
+    ClientPid = self(),
+    Pids = lists:map(fun(I) ->
+        spawn(fun() -> calculate_bellman_ford(ClientPid, N, Matrix_T, I) end)
     end, lists:seq(1, N)),
-    DistNewAfterRow.
+    collect_results(Pids).
+
+calculate_bellman_ford(ClientPid, N, Matrix_T, I) ->
+    ProcessPid = self(),
+    Result = lists:nth(1, algorithm:bellman_ford(N, Matrix_T, I)),
+    io:format("Process ~p finished with result [Vertex: ~p, Minimum distance path: ~p]~n", [self(), I, Result]),
+    ClientPid ! {ProcessPid, Result}.
+
+collect_results([]) ->
+    [];
+collect_results([Pid|Pids]) ->
+    receive
+        {Pid, Result} ->
+            [Result|collect_results(Pids)]
+    after 10 ->
+        io:format("Process ~p timed out~n", [Pid]),
+        collect_results(Pids)
+    end.
